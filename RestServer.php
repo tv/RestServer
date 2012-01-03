@@ -420,7 +420,16 @@ class RestServer
 	public function getData()
 	{
 		$data = file_get_contents('php://input');
-		if ($this->format == RestFormat::AMF) {
+		
+		if ($_SERVER['CONTENT_TYPE'] == 'application/x-www-form-urlencoded') {
+			$a = explode('&', $data);
+			$output = array();
+			foreach ($a as $entry) {
+				$tmp = split('=', $entry);
+				$output[urldecode($tmp[0])] = urldecode($tmp[1]);
+			}
+			return $output;
+		} else if ($this->format == RestFormat::AMF) {
 			require_once 'Zend/Amf/Parse/InputStream.php';
 			require_once 'Zend/Amf/Parse/Amf3/Deserializer.php';
 			$stream = new Zend_Amf_Parse_InputStream($data);
@@ -474,9 +483,9 @@ class RestServer
 				}
 			}
 		}
-		
-		if ($this->mode == 'debug' && $this->getFormat() == RestFormat::HTML && is_readable('lib/RestServer/geshi.php')) {
-			require_once 'lib/RestServer/geshi.php';
+
+		if ($this->mode == 'debug' && $this->getFormat() == RestFormat::HTML && is_readable(__DIR__.'/geshi.php')) {
+			require_once 'geshi.php';
 			$geshi = new GeSHi($data, 'javascript');
 			$geshi->enable_classes();
 
