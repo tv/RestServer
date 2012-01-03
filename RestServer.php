@@ -33,7 +33,7 @@ class RestFormat
 	const HTML = 'text/html';
 	const AMF = 'application/x-amf';
 	const JSON = 'application/json';
-	const JSONP = 'application/json-p';
+	const JSONP = 'application/javascript';
 	const XML = 'application/xml';
 	static public $formats = array(
 		'plain' => RestFormat::PLAIN,
@@ -209,8 +209,10 @@ class RestServer
 		}
 		
 		$message = $this->codes[$statusCode] . ($errorMessage && $this->mode == 'debug' ? ': ' . $errorMessage : '');
-		
-		$this->setStatus($statusCode);
+
+        if ($this->format !== RestFormat::JSONP) {
+            $this->setStatus($statusCode);
+        }
 		$this->sendData(array('error' => array('code' => $statusCode, 'message' => $message)));
 	}
 	
@@ -253,7 +255,7 @@ class RestServer
 				if ($url == $this->url) {
 					if (isset($args['data'])) {
 						$params = array_fill(0, $args['data'] + 1, null);
-						$params[$args['data']] = $this->data;
+						$params[$args['data']] = @$this->data;
 						$call[2] = $params;
 					}
 					return $call;
@@ -265,7 +267,7 @@ class RestServer
 					$params = array();
 					$paramMap = array();
 					if (isset($args['data'])) {
-						$params[$args['data']] = $this->data;
+						$params[$args['data']] = @$this->data;
 					}
 					
 					foreach ($matches as $arg => $match) {
@@ -328,7 +330,7 @@ class RestServer
 					$this->map[$httpMethod][$url] = $call;
 				}
 			}
-		}
+        }
 	}
 	
 	private function evaluateDocKeys($doc)
@@ -418,7 +420,6 @@ class RestServer
 	public function getData()
 	{
 		$data = file_get_contents('php://input');
-		
 		if ($this->format == RestFormat::AMF) {
 			require_once 'Zend/Amf/Parse/InputStream.php';
 			require_once 'Zend/Amf/Parse/Amf3/Deserializer.php';
@@ -427,14 +428,16 @@ class RestServer
 			$data = $deserializer->readTypeMarker();
 		} else {
 			$data = json_decode($data);
-		}
+        }
+
+
 		
 		return $data;
 	}
 	
 
 	public function sendData($data)
-	{
+    {
 		header("Cache-Control: no-cache, must-revalidate");
 		header("Expires: 0");
 		header('Content-Type: ' . $this->format);
@@ -464,7 +467,7 @@ class RestServer
 			}
 
 			if ($this->format == RestFormat::JSONP) {
-				if (isset($_GET['callback']) && preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $_GET['callback'])) {
+				if (isset($_GET['callback']) && preg_match('/^[a-zA-Z][a-zA-Z0-9_\.]*$/', $_GET['callback'])) {
 					$data = $_GET['callback'] . '(' . $data . ')';
 				} else {
 					throw new RestException(400, 'No callback given.');
@@ -472,8 +475,8 @@ class RestServer
 			}
 		}
 		
-		if ($this->mode == 'debug' && $this->getFormat() == RestFormat::HTML && is_readable('RestServer/geshi.php')) {
-			require_once 'RestServer/geshi.php';
+		if ($this->mode == 'debug' && $this->getFormat() == RestFormat::HTML && is_readable('lib/RestServer/geshi.php')) {
+			require_once 'lib/RestServer/geshi.php';
 			$geshi = new GeSHi($data, 'javascript');
 			$geshi->enable_classes();
 
@@ -545,12 +548,18 @@ class RestServer
 				$newline = "\n";
 			}
 			
+			if (is_object($value)) {
+				$val = get_object_vars($value);
+			} else {
+				$val = $value;
+			}
+			
 			$xml = (!empty($xml)) ? $xml : '';
-            if (is_array($value)) {
-                $xml.="$tab<$tag index=\"".$key."\">$newline".$this->array2xml($value, $pretty, ++$indention)."$tab</$tag>$newline";
+            if (is_array($val)) {
+                $xml.="$tab<$tag index=\"".$key."\">$newline".$this->array2xml($val, $pretty, ++$indention)."$tab</$tag>$newline";
 				$indention--;
             } else { 
-                $xml.="$tab<$tag>".$value."</$tag>$newline"; 
+                $xml.="$tab<$tag>".$val."</$tag>$newline"; 
             } 
         } 
         return $xml;
