@@ -208,7 +208,7 @@ class RestServer
 			}
 		}
 		
-		$message = $this->codes[$statusCode] . ($errorMessage && $this->mode == 'debug' ? ': ' . $errorMessage : '');
+        $message = $errorMessage;
 
         if ($this->format !== RestFormat::JSONP) {
             $this->setStatus($statusCode);
@@ -563,11 +563,17 @@ class RestServer
 				$val = $value;
 			}
 			
+			
 			$xml = (!empty($xml)) ? $xml : '';
             if (is_array($val)) {
                 $xml.="$tab<$tag index=\"".$key."\">$newline".$this->array2xml($val, $pretty, ++$indention)."$tab</$tag>$newline";
 				$indention--;
             } else { 
+				
+				if (!is_numeric($val)) {
+					$val = htmlspecialchars($val, ENT_NOQUOTES, UTF-8);
+				}
+				
                 $xml.="$tab<$tag>".$val."</$tag>$newline"; 
             } 
         } 
