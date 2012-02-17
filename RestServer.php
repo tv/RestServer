@@ -148,7 +148,7 @@ class RestServer
 
 				$result = call_user_func_array(array($obj, $method), $params);
 			} catch (RestException $e) {
-				$this->handleError($e->getCode(), $e->getMessage());
+				$this->handleError($e->getCode(), $e->getMessage(), $e->data);
 			}
 			
 			if (!empty($result)) {
@@ -190,7 +190,7 @@ class RestServer
 		$this->errorClasses[] = $class;
 	}
 	
-	public function handleError($statusCode, $errorMessage = null)
+	public function handleError($statusCode, $errorMessage = null, $data = null)
 	{
 		$method = "handle$statusCode";
 		foreach ($this->errorClasses as $class) {
@@ -213,7 +213,13 @@ class RestServer
         if ($this->format !== RestFormat::JSONP) {
             $this->setStatus($statusCode);
         }
-		$this->sendData(array('error' => array('code' => $statusCode, 'message' => $message)));
+
+    if (!empty($data)) {
+        // code...
+		    $this->sendData(array('error' => array('code' => $statusCode, 'message' => $message, 'data' => $data)));
+    } else {
+        $this->sendData(array('error' => array('code' => $statusCode, 'message' => $message)));
+    }
 	}
 	
 	protected function loadCache()
@@ -679,10 +685,16 @@ class RestServer
 
 class RestException extends Exception
 {
+
+  public $data = null;
 	
-	public function __construct($code, $message = null)
+	public function __construct($code, $message = null, $data = null)
 	{
-		parent::__construct($message, $code);
+  parent::__construct($message, $code);
+
+  if (!empty($data)) {
+      $this->data = $data;
+  }
 	}
 	
 }
