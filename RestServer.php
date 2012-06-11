@@ -138,7 +138,7 @@ class RestServer
 				
 				$result = call_user_func_array(array($obj, $method), $params);
 			} catch (RestException $e) {
-				$this->handleError($e->getCode(), $e->getMessage());
+				$this->handleError($e->getErrorCode(), $e->getMessage());
 			}
 			
 			if ($result !== null) {
@@ -235,11 +235,11 @@ class RestServer
 		foreach ($urls as $url => $call) {
 			$args = $call[2];
 			
-			if (!strstr($url, '$')) {
+      if (!strstr($url, '$')) {
 				if ($url == $this->url) {
 					if (isset($args['data'])) {
 						$params = array_fill(0, $args['data'] + 1, null);
-						$params[$args['data']] = $this->data;
+						$params[$args['data']] = @$this->data;
 						$call[2] = $params;
 					}
 					return $call;
@@ -324,8 +324,9 @@ class RestServer
 		if ($path[strlen($path) - 1] == '/') {
 			$path = substr($path, 0, -1);
 		}
+    $path = '/'.$path;
 		// remove root from path
-		if ($this->root) $path = str_replace($this->root, '', $path);
+    if ($this->root) $path = str_replace($this->root, '', $path);
 		// remove trailing format definition, like /controller/action.json -> /controller/action
 		$path = preg_replace('/\.(\w+)$/i', '', $path);
 		return $path;
@@ -348,6 +349,7 @@ class RestServer
 		$format = RestFormat::PLAIN;
 		$accept_mod = preg_replace('/\s+/i', '', $_SERVER['HTTP_ACCEPT']); // ensures that exploding the HTTP_ACCEPT string does not get confused by whitespaces
 		$accept = explode(',', $accept_mod);
+    $override = false;
 
 		if (isset($_REQUEST['format']) || isset($_SERVER['HTTP_FORMAT'])) {
 			// give GET/POST precedence over HTTP request headers
@@ -357,7 +359,7 @@ class RestServer
 		}
 		
 		// Check for trailing dot-format syntax like /controller/action.format -> action.json
-		if(preg_match('/\.(\w+)$/i', $_SERVER['REQUEST_URI'], &$matches)) {
+		if(preg_match('/\.(\w+)$/i', $_SERVER['REQUEST_URI'], $matches)) {
 			$override = $matches[1];
 		}
 
@@ -526,9 +528,14 @@ class RestServer
 class RestException extends Exception
 {
 	
-	public function __construct($code, $message = null)
+	public function __construct($code = 500, $message = null)
 	{
-		parent::__construct($message, $code);
+    $this->errorCode = $code;
+		parent::__construct($message);
 	}
 	
+  public function getErrorCode()
+  {
+    return $this->errorCode;
+  }
 }
